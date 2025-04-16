@@ -1,0 +1,108 @@
+---
+# 1. NGINX RTMP Pod to receive input from OBS (port 1935)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-rtmp
+  labels:
+    name: nginx-rtmp
+spec:
+  containers:
+  - name: nginx
+    image: alfg/nginx-rtmp
+    ports:
+    - containerPort: 1935
+---
+# 2. MetalLB Service to expose NGINX RTMP to LAN
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-rtmp-service
+spec:
+  type: LoadBalancer
+  selector:
+    name: nginx-rtmp
+  ports:
+  - name: rtmp
+    port: 1935
+    targetPort: 1935
+---
+# 3. FFmpeg GPU bridge to pull RTMP and feed to DeepFaceLive (GPU 1)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ffmpeg-gpu-bridge
+spec:
+  containers:
+  - name: ffmpeg
+    image: jrottenberg/ffmpeg:4.4-nvidia
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+    env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "1"
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      ffmpeg -i rtmp://nginx-rtmp-service:1935/live/test \
+        -vf "scale=1280:720,fps=30" \
+        -f rawvideo -pix_fmt bgr24 -y /shared/output/input.raw
+    volumeMounts:
+    - name: shared-output
+      mountPath: /shared/output
+  restartPolicy: Always
+  volumes:
+  - name: shared-output
+    emptyDir: {}
+---
+# 4. FFmpeg Output Streamer Pod (RTMP + HLS)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: output-streamer
+  labels:
+    name: output-streamer
+spec:
+  containers:
+  - name: ffmpeg
+    image: jrottenberg/ffmpeg:4.4-nvidia
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      ffmpeg -re -i /shared/output/output.mp4 \
+        -map 0 -c:v libx264 -preset veryfast -b:v 1500k -maxrate 1500k -bufsize 3000k \
+        -f flv rtmp://0.0.0.0:1940/live/final \
+        -map 0 -c:v libx264 -f hls -hls_time 4 -hls_list_size 5 -hls_flags delete_segments \
+        /hls/stream.m3u8
+    volumeMounts:
+    - name: shared-output
+      mountPath: /shared/output
+    - name: hls-volume
+      mountPath: /hls
+    ports:
+    - containerPort: 1940
+    - containerPort: 8080
+  restartPolicy: Always
+  volumes:
+  - name: shared-output
+    emptyDir: {}
+  - name: hls-volume
+    emptyDir: {}
+---
+# 5. MetalLB Service to expose output RTMP and HLS
+apiVersion: v1
+kind: Service
+metadata:
+  name: output-stream-service
+spec:
+  type: LoadBalancer
+  selector:
+    name: output-streamer
+  ports:
+  - name: rtmp-output
+    port: 1940
+    targetPort: 1940
+  - name: hls-http
+    port: 8080
+    targetPort: 8080

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+      - name: legacy-pool
+        protocol: layer2
+        addresses:
+          - 192.168.20.20-192.168.20.24
+      - name: new-pool
+        protocol: layer2
+        addresses:
+          - 192.168.20.25-192.168.20.29

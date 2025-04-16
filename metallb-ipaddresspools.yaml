@@ -1,0 +1,35 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: legacy-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.20.20-192.168.20.24
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: new-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.20.25-192.168.20.29
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: legacy-pool-adv
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - legacy-pool
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: new-pool-adv
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - new-pool

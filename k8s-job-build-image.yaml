@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: build-deepfacelive-image
+spec:
+  template:
+    spec:
+      containers:
+      - name: build-image
+        image: nvidia/cuda:12.2.0-runtime-ubuntu22.04
+        command: ["/bin/sh", "-c"]
+        args: [
+          "apt update && apt install -y git python3 python3-pip ffmpeg libgl1-mesa-glx libglib2.0-0 unzip cmake build-essential && \
+          pip3 install --upgrade pip && \
+          pip3 install torch torchvision torchaudio onnxruntime-gpu numpy opencv-python-headless imageio dlib insightface && \
+          git clone https://github.com/iperov/DeepFaceLive /app && mkdir -p /app/models && \
+          echo 'Build completed successfully!'"]
+        volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+      restartPolicy: Never
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+  backoffLimit: 4
