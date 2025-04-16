@@ -12,6 +12,14 @@ spec:
     image: alfg/nginx-rtmp
     ports:
     - containerPort: 1935
+    volumeMounts:
+    - name: nginx-config
+      mountPath: /etc/nginx/nginx.conf
+      subPath: nginx.conf
+  volumes:
+  - name: nginx-config
+    configMap:
+      name: nginx-rtmp-config
 ---
 # 2. MetalLB Service to expose NGINX RTMP to LAN
 apiVersion: v1
